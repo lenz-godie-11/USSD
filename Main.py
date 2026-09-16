@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 import httpx
 
@@ -20,14 +21,23 @@ BACKEND_URL = "http://127.0.0.1:9000/ussd"
 
 
 # Define the USSD gateway endpoint
-@app.post("/ussd")
+@app.post("/ussd", response_class=PlainTextResponse)
 async def ussd(request: USSDRequest):
 
-    async with httpx.AsyncClient() as client:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
 
-        response = await client.post(
-            BACKEND_URL,
-            json=request.model_dump()
-        )
+            response = await client.post(
+                BACKEND_URL,
+                json=request.model_dump()
+            )
 
-    return response.text
+        response.raise_for_status()
+
+        return response.text
+
+    except httpx.RequestError:
+        return "END Service temporarily unavailable. Please try again later."
+
+    except httpx.HTTPStatusError:
+        return "END Service temporarily unavailable. Please try again later."
